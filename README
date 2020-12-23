@@ -1,0 +1,28 @@
+# Skel Manager (skm)
+
+Version, manipulate, and transport the backbone of your filesystem.
+
+Skel Manager maintains a versioned skel directory. Such a directory is useful
+for bootstrapping filesystems.
+
+## cli
+- skm
+  - init
+  - diff
+  - inject
+  - eject
+  - ls
+  - show
+  - add
+  - edit
+
+## Credits
+
+- Grant Zvolsky
+
+[Simple Password Store](https://www.passwordstore.org/) by Jason Donenfeld
+(Jason@zx2c4.com) was used as a reference.
+
+## License
+
+GPL-2.0
