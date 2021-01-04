@@ -33,7 +33,7 @@ let
   };
 in pkgs.mkShell {
   name = "skm-shell";
-  nativeBuildInputs = [ my_vim fzf tree ];
+  nativeBuildInputs = [ my_vim fzf tree shellcheck ];
   shellHook = ''
     set -o vi
     alias skm='$(realpath ./skel-manager.sh) '
