@@ -1,0 +1,17 @@
+# Architecture
+
+This project should be small enough to be self-explanatory if one understands its dependencies - bash, nix, git, and GNU Make.
+
+## Decision records
+
+### 2021-02-08 Test harness
+
+Considered options
+
+* golang's [testscript](https://github.com/rogpeppe/go-internal/tree/master/testscript) as used e.g. [here](https://github.com/cuelang/cue/blob/760aa115cf9b62ed51c2d2ee4153d8654c0f231e/cmd/cue/cmd/script_test.go)
+  * pros: txtar is nice; neat output format
+  * cons: golang dependecy
+* git's [sharness](https://github.com/chriscool/sharness)
+  * pros: no additional dependencies
+
+Choose sharness.
