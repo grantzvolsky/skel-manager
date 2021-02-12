@@ -3,7 +3,9 @@
 set -euo pipefail
 
 PROGRAM="${0##*/}"
-PREFIX="${SKEL_MANAGER_DIR:-$HOME/.skm}"
+REPO_PATH="$(realpath "${SKEL_MANAGER_DIR:-$HOME/.skm}")"
+SKEL_PATH="$(realpath "$REPO_PATH"/skels/current)"
+SKEL_PATH_REL="${SKEL_PATH#$REPO_PATH}"
 
 die() {
   echo "$@" >&2
@@ -11,7 +13,8 @@ die() {
 }
 
 #cmd_init() {
-#  mkdir -vp "$PREFIX"
+#  mkdir -vp "$REPO_PATH/skels/current"
+#  touch "$REPO_PATH"/README
 #}
 
 #cmd_git {
@@ -23,49 +26,53 @@ cmd_export() { # export to skel
   # TODO if not a link
   local arg_path="$1"
   local arg_path_abs; arg_path_abs="$(realpath --no-symlinks "$arg_path")"
-  cp -v --no-dereference --preserve=all --parents "$arg_path_abs"  "$PREFIX/"
+  cp -v --no-dereference --preserve=all --parents "$arg_path_abs"  "$SKEL_PATH/"
 }
 
 cmd_import() { # import from skel
   local arg_path="$1"
   local arg_path_abs; arg_path_abs="$(realpath --no-symlinks "$arg_path")"
-  if [[ -d "$PREFIX/$arg_path" ]]; then
+  if [[ -d "$SKEL_PATH/$arg_path" ]]; then
     # TODO first ensure that the destination files either match the source or don't exist
-    cp -vr --no-dereference --preserve=all "$PREFIX/$arg_path/." "$arg_path_abs"
+    cp -vr --no-dereference --preserve=all "$SKEL_PATH/$arg_path/." "$arg_path_abs"
   else
-    cp -v --no-dereference --preserve=all "$PREFIX/$arg_path" "$arg_path_abs"
+    cp -v --no-dereference --preserve=all "$SKEL_PATH/$arg_path" "$arg_path_abs"
   fi
 }
 
 cmd_pwd() {
-  echo "$PREFIX"
+  echo "$SKEL_PATH"
 }
 
 #cmd_link() { # link from skel
 #  # TODO if not exists
 #  local arg_path="$1"
 #  local arg_path_abs; arg_path_abs="$(realpath "$arg_path")"
-#  local skm_path="$PREFIX$arg_path_abs"
+#  local skm_path="$SKEL_PATH$arg_path_abs"
 #  git diff --no-index "$skm_path" "$arg_path"
-#  #cp -v --parents "$(realpath "$1")" "$PREFIX/"
+#  #cp -v --parents "$(realpath "$1")" "$SKEL_PATH/"
 #}
 
 cmd_diff() {
-  src_target_expr="\$S $PREFIX/{}"
-  [[ $1 == "export" ]] && src_target_expr="$PREFIX/{} \$S"
+  src_target_expr="\$S $SKEL_PATH{}"
+  [[ $1 == "export" ]] && src_target_expr="$SKEL_PATH{} \$S"
   shift
   local arg_path="${1:-/}"
   local arg_path_abs; arg_path_abs="$(realpath --no-symlinks "$arg_path")"
-  local skm_path="$PREFIX$arg_path_abs"
+  local skm_path="$SKEL_PATH$arg_path_abs"
   if [[ -L "$arg_path" && $(readlink -m "$arg_path") == "$skm_path" ]]; then
     die "'$arg_path_abs' is managed by skm. It is a symbolic link to '$skm_path'"
-  fi
-  if [[ -d "$skm_path" ]]; then
+  elif [[ -d "$skm_path" ]]; then
     # TODO if --stat run diff with --numstat
     # TODO do the diff in a single git diff call
     #find "$skm_path" -type f -not -path "$PREFIX/.git/*" -print0 | xargs -0 -I{} -- bash -c 'S={} && S=${S#'"$PREFIX"'} && if [[ ! -f $S ]]; then S=/dev/null; fi  && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
     # TODO test with path that contain all valid path characters (see https://dwheeler.com/essays/fixing-unix-linux-filenames.html)
-    git -C "$PREFIX" ls-files -z "$skm_path" | xargs -0 -I{} -- bash -c 'S="/{}" && if [[ ! -f "/{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
+    #echo $SKEL_MANAGER_DIR
+    #echo $SKEL_PATH
+    #echo $skm_path
+    #git -C "$REPO_PATH" ls-files "$skm_path" | cut -c"${#SKEL_PATH_REL}"-
+    git -C "$SKEL_MANAGER_DIR" ls-files -z "$skm_path" | cut -zc"${#SKEL_PATH_REL}"- | xargs -0 -I{} -- bash -c 'S="{}" && if [[ ! -f "{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
+    #git -C "$SKEL_MANAGER_DIR" ls-files -z "$skm_path" | cut -c"${#SKEL_PATH_REL}"- | xargs -0 -I{} -- bash -c 'S="{}" && if [[ ! -f "{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
   else
     git diff --no-index "$skm_path" "$arg_path"
   fi
@@ -80,13 +87,13 @@ cmd_list() {
   #tree ~/.skm/
   local arg_path="${1-.}"
   local arg_path_abs; arg_path_abs="$(realpath "$arg_path")"
-  local skm_path="$PREFIX/$arg_path"
+  local skm_path="$SKEL_PATH/$arg_path"
   if [[ -d $skm_path ]]; then
     realpath "$skm_path"
     tree -aClI '.git' --noreport "$skm_path" | tail -n +2
   elif [[ -f $skm_path ]]; then
     ls -la "$skm_path"
-  elif [[ $skm_path == "$PREFIX/" ]]; then
+  elif [[ $skm_path == "$SKEL_PATH/" ]]; then
     die "Error: skel manager is not initialized. Try '$PROGRAM init'."
   else
     die "Error: '$arg_path_abs' is not managed by skm."
