@@ -5,15 +5,31 @@ Version, manipulate, and transport the backbone of your filesystem.
 Skel Manager maintains a versioned skel directory. Such a directory is useful
 for bootstrapping filesystems.
 
+TODO synopsis
+
+## Etymology
+
+The name `skel` traditionally refers to the `/etc/skel/` directory. This directory is used to initialize new users' home directories.
+
+In `skm` the meaning is slightly different:
+
+* by default, the skel directory is not limited to /home
+* the contents of skel evolve
+* skel is synchronized in both directions
+* skm can manage multiple names skels
+
 ## cli
+
 - skm
   - init
-  - diff
-  - inject
-  - eject
-  - ls
-  - show
-  - add
+  - diff-export|dex|de
+  - diff-import|dim|di
+  - export
+  - import
+  - link
+  - rm
+  - list|ls|show
+  - git
   - edit
 
 ## Credits
