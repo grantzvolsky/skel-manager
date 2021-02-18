@@ -4,7 +4,7 @@ let
   my_vim = callPackage ./nix/vim/vim.nix {};
 in pkgs.mkShell {
   name = "skm-shell";
-  nativeBuildInputs = [ my_vim git fzf tree shellcheck ];
+  nativeBuildInputs = [ my_vim git fzf inotify-tools tree shellcheck ];
   shellHook = ''
     set -o vi
     alias skm='$(realpath ./skel-manager.sh) '

@@ -71,7 +71,7 @@ cmd_diff() {
     #echo $SKEL_PATH
     #echo $skm_path
     #git -C "$REPO_PATH" ls-files "$skm_path" | cut -c"${#SKEL_PATH_REL}"-
-    git -C "$SKEL_MANAGER_DIR" ls-files -z "$skm_path" | cut -zc"${#SKEL_PATH_REL}"- | xargs -0 -I{} -- bash -c 'S="{}" && if [[ ! -f "{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
+    git -C "$REPO_PATH" ls-files -z "$skm_path" | cut -zc"${#SKEL_PATH_REL}"- | xargs -0 -I{} -- bash -c 'S="{}" && if [[ ! -f "{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
     #git -C "$SKEL_MANAGER_DIR" ls-files -z "$skm_path" | cut -c"${#SKEL_PATH_REL}"- | xargs -0 -I{} -- bash -c 'S="{}" && if [[ ! -f "{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
   else
     git diff --no-index "$skm_path" "$arg_path"
@@ -100,6 +100,14 @@ cmd_list() {
   fi
 }
 
+cmd_watch() { # TODO --no-snapshot flag to avoid copying large directories
+  tmp_dir=$(mktemp -d)
+  echo "INFO: Creating a snapshot of '$1'."
+  cp -a "$1" "$tmp_dir"
+  trap "git diff --no-index $tmp_dir $1" EXIT # TODO work out how to specify source and destination roots in order to consider files with the same in-root path identical; git diff currently marks all files as renamed because their paths are different
+  inotifywait -m -r "$1"
+}
+
 [[ $# -eq 0 ]] && cmd_list && exit
 
 case $1 in
@@ -112,6 +120,7 @@ case $1 in
   #link) shift; cmd_link "$@" ;;
   list|ls) shift; cmd_list "$@" ;;
   pwd) shift; cmd_pwd ;;
+  watch) shift; cmd_watch "$@";;
   #TODO skel-list -- lists directories in $SKEL_MANAGER_DIR/skels
   #TODO skel-use -- links $SKEL_MANAGER_DIR/skels/current to skels/<name>
   *) cmd_list "$@" ;;
