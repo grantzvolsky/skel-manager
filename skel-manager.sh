@@ -17,9 +17,9 @@ die() {
 #  touch "$REPO_PATH"/README
 #}
 
-#cmd_git {
-#  case $1 in init...
-#}
+cmd_git() { # TODO completion
+  git -C "$SKEL_PATH" "$@"
+}
 
 cmd_export() { # export to skel
   # TODO if not exists
@@ -71,7 +71,7 @@ cmd_diff() {
     #echo $SKEL_PATH
     #echo $skm_path
     #git -C "$REPO_PATH" ls-files "$skm_path" | cut -c"${#SKEL_PATH_REL}"-
-    git -C "$REPO_PATH" ls-files -z "$skm_path" | cut -zc"${#SKEL_PATH_REL}"- | xargs -0 -I{} -- bash -c 'S="{}" && if [[ ! -f "{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
+    git -C "$REPO_PATH" ls-files -z "$skm_path" | cut -zc"${#SKEL_PATH_REL}"- | xargs -0 -I{} -- bash -c 'S="{}" && if [[ ! -f "{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr" | less -FRX
     #git -C "$SKEL_MANAGER_DIR" ls-files -z "$skm_path" | cut -c"${#SKEL_PATH_REL}"- | xargs -0 -I{} -- bash -c 'S="{}" && if [[ ! -f "{}" ]]; then S=/dev/null; fi && git --no-pager diff --color=always --no-index -- '"$src_target_expr"' && printf "%s matches\n" $S' | less -FRX
   else
     git diff --no-index "$skm_path" "$arg_path"
@@ -116,6 +116,7 @@ case $1 in
   diff-import|dim|di) shift; cmd_diff "import" "$@";;
   export|ex|e) shift; cmd_export "$@" ;;
   import|im|i) shift; cmd_import "$@" ;;
+  git|g) shift; cmd_git "$@" ;;
   #init) shift; cmd_init "$@" ;; # TODO require a name; create $SKEL_MANAGER_DIR/skels/<name>
   #link) shift; cmd_link "$@" ;;
   list|ls) shift; cmd_list "$@" ;;
@@ -123,5 +124,6 @@ case $1 in
   watch) shift; cmd_watch "$@";;
   #TODO skel-list -- lists directories in $SKEL_MANAGER_DIR/skels
   #TODO skel-use -- links $SKEL_MANAGER_DIR/skels/current to skels/<name>
+  #TODO skel-cd -- change to the selected skel (or current by default); this may not be possible with bash
   *) cmd_list "$@" ;;
 esac
