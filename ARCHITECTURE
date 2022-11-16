@@ -15,3 +15,62 @@ Considered options
   * pros: no additional dependencies
 
 Choose sharness.
+
+- skm
+  - init
+  - diff-export|dex|de
+  - diff-import|dim|di
+  - export
+  - import
+  - link
+  - rm
+  - list|ls|show
+  - git
+  - edit
+  - watch
+
+### 2022-06-26 v2 redesign
+
+test question: what happens to gitignored files after reboot?
+  - git status --ignored can be handy
+  - what happens to changes that haven't been git-added?
+
+- skm
+  - init ~ print a recommended git init & corresponding skm root add command
+  [--root=...]
+    - acts as git with the given root or default
+#  - di [from-root]
+#  - de [to-root]
+  - root
+    - list
+    - add
+    - [name]
+      - --set-default
+      - mount
+      - umount
+  - branch
+    - list
+    - add
+    - [name]
+      - mount
+        - --boot|--manual
+      - umount
+  - git
+
+### 2022-11-15 v2 redesign continued
+
+DESIGN DECISION: one rootfs at a time so that we don't need to implement the `root` concept
+DESIGN DECITION: rename `branch` -> `overlay`
+
+- gom [git-based overlay manager]
+  - init
+    - print the recommended git init command
+    - print the corresponding skm overlay add command
+    - print the corresponding env variables & ask the user to add them to their profile
+    - [--git-dir=...] override the SKM_GIT_DIR variable
+
+  - overlay
+    - list
+    - add [--mount-on-boot]
+    - [relpath] mount [--on-boot]
+    - [relpath] umount [--on-boot]
