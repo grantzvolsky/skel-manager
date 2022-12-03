@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -exo pipefail
 
 BINARY_NAME="${0##*/}"
 
@@ -14,7 +14,38 @@ die() {
 #fi
 
 cmd_list() {
-  mount | grep 'upperdir='
+  if [ "$#" -eq 0 ]; then
+    cat /proc/mounts | grep 'upperdir='${GOM_WORK_TREE} | awk '$1=="overlay" {print $2}'
+    #mount -t overlay | grep 'upperdir='${GOM_WORK_TREE}
+    exit
+  fi
+
+  if [ "$#" -eq 1 ]; then
+    git init /tmp/wx-empty-git-dir || true
+    pushd /
+      git --git-dir=/tmp/wx-empty-git-dir/.git ls-files "$1" --other
+    popd
+    #git --git-dir=/tmp/wx-empty-git-dir/.git ls-files /var --other -X /tmp/.gitignore
+    #git --git-dir=/tmp/test/.git ls-files /var --other -X /tmp/.gitignore
+    exit
+  fi
+
+  if [ "$#" -eq 2 ]; then
+    git init /tmp/wx-empty-git-dir || true
+    #git --git-dir=/tmp/wx-empty-git-dir/.git ls-files /var --other -X /tmp/.gitignore
+    pushd /
+      git --git-dir=/tmp/wx-empty-git-dir/.git ls-files "$1" --other -X "$2"
+    popd
+    #git --git-dir=/tmp/test/.git ls-files /var --other -X /tmp/.gitignore
+    exit
+  fi
+
+  die "Usage: $BINARY_NAME ls [path [--ignore-file=<path>]]"
+}
+
+cmd_usage() {
+  set +x
+  echo "Usage: ${BINARY_NAME} init|list|mount|pwd|umount|watch"
   exit
 }
 
@@ -45,22 +76,62 @@ cmd_init() {
   echo "alias s='git --git-dir=\$GOM_GIT_DIR --work-tree=\$GOM_WORK_TREE'"
 }
 
-cmd_mount() {
-  mkdir -p /tmp/skm-overlay-workdir
-  mkdir -p $GOM_WORK_TREE$1
-  sudo mount -t overlay overlay -o workdir=/tmp/skm-overlay-workdir,lowerdir=$1,upperdir=$GOM_WORK_TREE$1 $1
+cmd_ignore() {
+  if [ "$#" -eq 0 ]; then
+    git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" status --porcelain --ignored | grep '^!!'
+  else
+    echo "$@" >> $GOM_WORK_TREE/.gitignore
+  fi
 }
 
-[[ $# -eq 0 ]] && cmd_list && exit
+cmd_mount() {
+  local upperdir=${GOM_WORK_TREE}$1
+  if [ "$#" -ne 1 ]; then
+    echo "Usage: ${BINARY_NAME} mount <path>"
+    echo "Mounts GOM_WORK_TREE<path> at <path>."
+    exit 1
+  fi
+  #if cat /proc/mounts | grep 'upperdir='$upperdir | awk '$1=="overlay" {print $2}'; then
+  #  die "[ERROR]: $upperdir is already mounted or"
+  #fi
+  mkdir -p /tmp/skm-overlay-workdir
+  mkdir -p $GOM_WORK_TREE$1
+  sudo mount -t overlay overlay -o workdir=/tmp/skm-overlay-workdir,lowerdir=$1,upperdir=$upperdir $1
+}
+
+cmd_umount() {
+  local upperdir=${GOM_WORK_TREE}$1
+  if cat /proc/mounts | grep 'upperdir='$upperdir'/'; then
+    echo "[ERROR]: $upperdir is a parent to other mounts; please umount these first"
+    cmd_list
+    exit
+  fi
+  if sudo umount -t overlay $1; then
+    exit
+  else
+    { echo "[ERROR] Failed to umount ${1}; fuser may indicate why:"; } > 2 > /dev/null
+    fuser -vm $1
+  fi
+}
+
+cmd_pwd() {
+  echo "$GOM_WORK_TREE"
+}
+
+[[ $# -eq 0 ]] && cmd_usage && exit
+
+# TODO document the fact that files can be "checked into" the work tree using the touch command
+# TODO test what happens when a git checkout is run on an active overlay and implement the `s` command in a way that doesn't allow any modifications of the work tree by git itself
 
 case $1 in
   init) shift; cmd_init "$@" ;;
-  list|ls) shift; cmd_list ;;
+  ignore) shift; cmd_ignore "$@" ;;
+  list|ls) shift; cmd_list "$@" ;;
   mount) shift; cmd_mount "$@" ;;
   pwd) shift; cmd_pwd ;;
   umount) shift; cmd_umount "$@" ;;
   watch) shift; cmd_watch "$@";;
-  *) cmd_list ;;
+  *) cmd_usage ;;
 esac
 
 # PROGRAM="${0##*/}"
