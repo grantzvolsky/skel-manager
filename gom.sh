@@ -45,7 +45,7 @@ cmd_list() {
 
 cmd_usage() {
   set +x
-  echo "Usage: ${BINARY_NAME} init|list|mount|pwd|umount|watch"
+  echo "Usage: ${BINARY_NAME} init|list|mount|pwd|repo-clean|umount|watch"
   exit
 }
 
@@ -84,12 +84,26 @@ cmd_ignore() {
   fi
 }
 
+ensure_repo_clean() {
+  pushd "$GOM_WORK_TREE"
+    CFS=$(find . -type b,c,p,f,l,s | wc -l)
+    CGIT=$(git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" ls-files | wc -l)
+  popd
+  if [ ! $CFS -eq $CGIT ]; then
+    die "$GOM_GIT_DIR is not clean"
+  fi
+}
+
 cmd_mount() {
-  local upperdir=${GOM_WORK_TREE}$1
+  ensure_repo_clean
+  local upperdir=${GOM_WORK_TREE}/$1
   if [ "$#" -ne 1 ]; then
     echo "Usage: ${BINARY_NAME} mount <path>"
     echo "Mounts GOM_WORK_TREE<path> at <path>."
     exit 1
+  fi
+  if [[ ! "$1" =~ ^/.*$ ]]; then
+    die '$1 must be an absolute path'
   fi
   #if cat /proc/mounts | grep 'upperdir='$upperdir | awk '$1=="overlay" {print $2}'; then
   #  die "[ERROR]: $upperdir is already mounted or"
@@ -118,6 +132,14 @@ cmd_pwd() {
   echo "$GOM_WORK_TREE"
 }
 
+cmd_repo_clean() {
+  pushd $GOM_WORK_TREE
+    find . -type c | xargs -I{} rm '{}'
+    git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" ls-files --others | xargs -I{} rm '{}'
+    find . -type d -empty | xargs -I{} rmdir '{}'
+  popd
+}
+#b,c,d,p,f,l,s,D
 [[ $# -eq 0 ]] && cmd_usage && exit
 
 # TODO document the fact that files can be "checked into" the work tree using the touch command
@@ -129,6 +151,7 @@ case $1 in
   list|ls) shift; cmd_list "$@" ;;
   mount) shift; cmd_mount "$@" ;;
   pwd) shift; cmd_pwd ;;
+  repo-clean) shift; cmd_repo_clean ;;
   umount) shift; cmd_umount "$@" ;;
   watch) shift; cmd_watch "$@";;
   *) cmd_usage ;;
