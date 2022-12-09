@@ -13,6 +13,13 @@ die() {
 #  die "[ERROR]: GOM_GIT_DIR=${GOM_GIT_DIR} is not a directory"
 #fi
 
+cmd_diff_export() {
+  #if cat /proc/mounts | grep 'upperdir='$upperdir | awk '$1=="overlay" {print $2}'; then
+  #  die "[ERROR]: $upperdir is mounted or"
+  #fi
+  return
+}
+
 cmd_list() {
   if [ "$#" -eq 0 ]; then
     cat /proc/mounts | grep 'upperdir='${GOM_WORK_TREE} | awk '$1=="overlay" {print $2}'
@@ -76,6 +83,41 @@ cmd_init() {
   echo "alias s='git --git-dir=\$GOM_GIT_DIR --work-tree=\$GOM_WORK_TREE'"
 }
 
+cmd_diff_skel_overlay() {
+  # TODO args
+
+  git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" update-index --refresh
+  if ! git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" diff-index HEAD --quiet --; then
+    echo 'Error: overlay working tree is dirty; all changes need to be committed in order to run the diff' >&2
+    exit 1
+  fi
+
+  if [[ "$1" == "--stat"  ]]; then
+    git --git-dir="$GOM_GIT_DIR" --work-tree="/" diff -R --stat -- "${2:-/}"
+  else
+    git --git-dir="$GOM_GIT_DIR" --work-tree="/" diff -R -- "${1:-/}"
+  fi
+
+}
+
+cmd_diff_overlay_skel() {
+  # TODO args
+
+
+  git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" update-index --refresh
+  if ! git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" diff-index HEAD --quiet --; then
+    echo 'Error: overlay working tree is dirty; all changes need to be committed in order to run the diff' >&2
+    exit 1
+  fi
+
+  if [[ "$1" == "--stat"  ]]; then
+    git --git-dir="$GOM_GIT_DIR" --work-tree="/" diff --stat -- "${2:-/}"
+  else
+    git --git-dir="$GOM_GIT_DIR" --work-tree="/" diff -- "${1:-/}"
+  fi
+
+}
+
 cmd_ignore() {
   if [ "$#" -eq 0 ]; then
     git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" status --porcelain --ignored | grep '^!!'
@@ -105,9 +147,9 @@ cmd_mount() {
   if [[ ! "$1" =~ ^/.*$ ]]; then
     die '$1 must be an absolute path'
   fi
-  #if cat /proc/mounts | grep 'upperdir='$upperdir | awk '$1=="overlay" {print $2}'; then
-  #  die "[ERROR]: $upperdir is already mounted or"
-  #fi
+  if cat /proc/mounts | grep 'upperdir='$upperdir | awk '$1=="overlay" {print $2}'; then
+    die "[ERROR]: $upperdir is already mounted or"
+  fi
   mkdir -p /tmp/skm-overlay-workdir
   mkdir -p $GOM_WORK_TREE$1
   sudo mount -t overlay overlay -o workdir=/tmp/skm-overlay-workdir,lowerdir=$1,upperdir=$upperdir $1
@@ -145,9 +187,78 @@ cmd_repo_clean() {
 # TODO document the fact that files can be "checked into" the work tree using the touch command
 # TODO test what happens when a git checkout is run on an active overlay and implement the `s` command in a way that doesn't allow any modifications of the work tree by git itself
 
+# ft: overlay-based filesystem tracker
+# from the perspective of sod, your rootfs becomes a skel directory
+# sot then tracks the changes to interesting parts of your filesystem
+# it does so by holding the changes in an [overlay](...), and tracking
+# the overlay as a git repository
+#
+# note that this is different from how skel directories have been used traditionally
+# in other contexts, the skel is located in a separate path, wuch as /etc/skel
+# sod fuses the skel and its mutations using overlayfs. the paths in the skel
+# are the same as the paths in the live filesystem, which is now an overlayfs.
+# the skel is activated not by copying contents from /etc/skel. instead, skel
+# becomes the default state of your filesystem, and you apply your changes to
+# the skel by mounting the overlay.
+# sod allows you to move files back and forth between the skel and the overlay,
+# and to track changes using git
+#
+# the use of git is optional; it is, however, strongly recommended to frequently backup your overlay, and sod allows you to do this easily when used with git
+# 
+#
+# by overlay, we mean the upper directory of an overlayfs
+# by skel, we mean the lower directory of an overlayfs
+#
+# there are two crucial paths that sot needs to know at all times:
+# 1. the path to your skel, which could be `/` or your home directory
+# 2. the path to the overlay
+#
+# TODO
+
+# # simple mode:
+# diff / overlay
+# - when overlay is mounted, the diff is always zero
+# diff overlay /
+# - when overlay is mounted, the diff is always zero
+# 
+# # git mode
+# when using git mode, overlay ceases to be just a plain directory, and becomes a git repository
+# the repository can be viewed at different states, and you might want to view a diff of the different states
+# to diff different states of the overlay, use the git command with the parameters --work-tree=... and --work-dir; ftr encourages you to make a git alias
+# to save you from typing them out every time
+# 
+# git mode adds a constraint on running the ftr diff command: in order for it to give you meaningful results, the repository must not be dirty; that means
+# no uncommitted changes or staged chagnes
+# 
+# diff / overlay-work-tree - only allowed if there are no staged
+# diff / overlay-index - not allowed; use git diff --work-tree=... --work-dir=... <commit> instead
+# diff / overlay-staging - not allowed
+# diff overlay-work-tree /
+# diff overlay-work-tree overlay-index
+# diff overlay-work-tree overlay-staging
+# diff overlay-index /
+# diff overlay-index overlay-work-tree
+# diff overlay-index overlay-staging
+# diff overlay-staging overlay-index
+# diff overlay-staging overlay-work-tree
+# diff overlay-staging /
+
+cmd_watch() { # TODO --no-snapshot flag to avoid copying large directories
+  tmp_dir=$(mktemp -d)
+  echo "INFO: Creating a snapshot of '$1'."
+  cp -a "$1" "$tmp_dir"
+  trap "git diff --no-index $tmp_dir $1" EXIT # TODO work out how to specify source and destination roots in order to consider files with the same in-root path identical; git diff currently marks all files as renamed because their paths are different
+  inotifywait -m -r "$1"
+}
+
+
 case $1 in
   init) shift; cmd_init "$@" ;;
   ignore) shift; cmd_ignore "$@" ;;
+  diff-skel-overlay|dso|sod) shift; cmd_diff_skel_overlay "$@" ;;
+  diff-overlay-skel|dos|osd) shift; cmd_diff_overlay_skel "$@" ;;
+  copy-down) shift; cmd_copy_down "$@" ;;
+  copy-up) shift; cmd_copy_up "$@" ;;
   list|ls) shift; cmd_list "$@" ;;
   mount) shift; cmd_mount "$@" ;;
   pwd) shift; cmd_pwd ;;
@@ -259,13 +370,6 @@ esac
 #   fi
 # }
 # 
-# cmd_watch() { # TODO --no-snapshot flag to avoid copying large directories
-#   tmp_dir=$(mktemp -d)
-#   echo "INFO: Creating a snapshot of '$1'."
-#   cp -a "$1" "$tmp_dir"
-#   trap "git diff --no-index $tmp_dir $1" EXIT # TODO work out how to specify source and destination roots in order to consider files with the same in-root path identical; git diff currently marks all files as renamed because their paths are different
-#   inotifywait -m -r "$1"
-# }
 # 
 # [[ $# -eq 0 ]] && cmd_list && exit
 # 
