@@ -13,6 +13,11 @@ die() {
 #  die "[ERROR]: GOM_GIT_DIR=${GOM_GIT_DIR} is not a directory"
 #fi
 
+cmd_copy_overlay_skel() {
+  # TODO
+  # TODO only run this cmd if the path is not a lowerdir in a mounted overlay
+}
+
 cmd_diff_export() {
   #if cat /proc/mounts | grep 'upperdir='$upperdir | awk '$1=="overlay" {print $2}'; then
   #  die "[ERROR]: $upperdir is mounted or"
@@ -52,7 +57,27 @@ cmd_list() {
 
 cmd_usage() {
   set +x
-  echo "Usage: ${BINARY_NAME} init|list|mount|pwd|repo-clean|umount|watch"
+  cat <<- EOF
+	NAME
+		${BINARY_NAME} - Overlay-based Filetree Tracker
+
+	SYNOPSIS
+		${BINARY_NAME} <command> [<args>]
+
+	COMMANDS
+	  init
+	  ignore
+	  copy-skel-overlay
+	  copy-overlay-skel
+	  diff-skel-overlay
+	  diff-overlay-skel
+	  list
+	  mount
+	  pwd
+	  repo-clean
+	  umount
+	  watch
+EOF
   exit
 }
 
@@ -150,9 +175,9 @@ cmd_mount() {
   if cat /proc/mounts | grep 'upperdir='$upperdir | awk '$1=="overlay" {print $2}'; then
     die "[ERROR]: $upperdir is already mounted or"
   fi
-  mkdir -p /tmp/skm-overlay-workdir
+  mkdir -p /tmp/ftr-overlay-workdir
   mkdir -p $GOM_WORK_TREE$1
-  sudo mount -t overlay overlay -o workdir=/tmp/skm-overlay-workdir,lowerdir=$1,upperdir=$upperdir $1
+  sudo mount -t overlay overlay -o workdir=/tmp/ftr-overlay-workdir,lowerdir=$1,upperdir=$upperdir $1
 }
 
 cmd_umount() {
@@ -181,8 +206,6 @@ cmd_repo_clean() {
     find . -type d -empty | xargs -I{} rmdir '{}'
   popd
 }
-#b,c,d,p,f,l,s,D
-[[ $# -eq 0 ]] && cmd_usage && exit
 
 # TODO document the fact that files can be "checked into" the work tree using the touch command
 # TODO test what happens when a git checkout is run on an active overlay and implement the `s` command in a way that doesn't allow any modifications of the work tree by git itself
@@ -192,6 +215,8 @@ cmd_repo_clean() {
 # sot then tracks the changes to interesting parts of your filesystem
 # it does so by holding the changes in an [overlay](...), and tracking
 # the overlay as a git repository
+#
+# skel: a read-only filetree on top of which a user environment is built
 #
 # note that this is different from how skel directories have been used traditionally
 # in other contexts, the skel is located in a separate path, wuch as /etc/skel
@@ -251,14 +276,16 @@ cmd_watch() { # TODO --no-snapshot flag to avoid copying large directories
   inotifywait -m -r "$1"
 }
 
+[[ $# -eq 0 ]] && cmd_usage && exit
 
 case $1 in
   init) shift; cmd_init "$@" ;;
   ignore) shift; cmd_ignore "$@" ;;
-  diff-skel-overlay|dso|sod) shift; cmd_diff_skel_overlay "$@" ;;
   diff-overlay-skel|dos|osd) shift; cmd_diff_overlay_skel "$@" ;;
-  copy-down) shift; cmd_copy_down "$@" ;;
-  copy-up) shift; cmd_copy_up "$@" ;;
+  diff-skel-overlay|dso|sod) shift; cmd_diff_skel_overlay "$@" ;;
+#  copy-overlay-skel|cos|osc) shift; cmd_copy_overlay_skel "$@" ;;
+#  copy-skel-overlay|cso|soc) shift; cmd_copy_skel_overlay "$@" ;;
+# skel-molt|skel-backup - copy files tracked by git into a new directory containing the skel counterparts of the overlay
   list|ls) shift; cmd_list "$@" ;;
   mount) shift; cmd_mount "$@" ;;
   pwd) shift; cmd_pwd ;;
@@ -272,16 +299,6 @@ esac
 # REPO_PATH="$(realpath "${SKEL_MANAGER_DIR:-$HOME/.skm}")"
 # SKEL_PATH="$(realpath "$REPO_PATH"/skels/current)"
 # SKEL_PATH_REL="${SKEL_PATH#$REPO_PATH}"
-# 
-# die() {
-#   echo "$@" >&2
-#   exit 1
-# }
-# 
-# #cmd_init() {
-# #  mkdir -vp "$REPO_PATH/skels/current"
-# #  touch "$REPO_PATH"/README
-# #}
 # 
 # cmd_git() { # TODO completion
 #   git -C "$SKEL_PATH" "$@"
@@ -308,10 +325,6 @@ esac
 #   else
 #     cp -v --no-dereference --preserve=all "$SKEL_PATH/$arg_path" "$arg_path_abs"
 #   fi
-# }
-# 
-# cmd_pwd() {
-#   echo "$SKEL_PATH"
 # }
 # 
 # #cmd_link() { # link from skel
@@ -369,9 +382,6 @@ esac
 #     die "Error: '$arg_path_abs' is not managed by skm."
 #   fi
 # }
-# 
-# 
-# [[ $# -eq 0 ]] && cmd_list && exit
 # 
 # case $1 in
 #   diff) shift; die "Error: use either diff-export/dex/de or diff-import/dim/di" ;;
