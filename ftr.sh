@@ -16,6 +16,7 @@ die() {
 cmd_copy_overlay_skel() {
   # TODO
   # TODO only run this cmd if the path is not a lowerdir in a mounted overlay
+  return
 }
 
 cmd_diff_export() {
@@ -199,7 +200,7 @@ cmd_pwd() {
   echo "$GOM_WORK_TREE"
 }
 
-cmd_repo_clean() {
+cmd_overlay_clean() {
   pushd $GOM_WORK_TREE
     find . -type c | xargs -I{} rm '{}'
     git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" ls-files --others | xargs -I{} rm '{}'
@@ -281,15 +282,16 @@ cmd_watch() { # TODO --no-snapshot flag to avoid copying large directories
 case $1 in
   init) shift; cmd_init "$@" ;;
   ignore) shift; cmd_ignore "$@" ;;
-  diff-overlay-skel|dos|osd) shift; cmd_diff_overlay_skel "$@" ;;
-  diff-skel-overlay|dso|sod) shift; cmd_diff_skel_overlay "$@" ;;
+  diff-overlay-skel|dos|osd) shift; cmd_diff_overlay_skel "$@" ;; # this tells you what changes will take place when you umount the overlay or copy files from skel to overlay
+  diff-skel-overlay|dso|sod) shift; cmd_diff_skel_overlay "$@" ;; # this tells you what changes will take place when you mount the overlay or copy files form overlay to skel
 #  copy-overlay-skel|cos|osc) shift; cmd_copy_overlay_skel "$@" ;;
 #  copy-skel-overlay|cso|soc) shift; cmd_copy_skel_overlay "$@" ;;
 # skel-molt|skel-backup - copy files tracked by git into a new directory containing the skel counterparts of the overlay
+# merge-file - a helper to merge files present in both skel and overlay
   list|ls) shift; cmd_list "$@" ;;
   mount) shift; cmd_mount "$@" ;;
   pwd) shift; cmd_pwd ;;
-  repo-clean) shift; cmd_repo_clean ;;
+  overlay-clean|oc) shift; cmd_overlay_clean ;;
   umount) shift; cmd_umount "$@" ;;
   watch) shift; cmd_watch "$@";;
   *) cmd_usage ;;
