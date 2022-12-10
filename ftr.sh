@@ -162,6 +162,43 @@ ensure_repo_clean() {
   fi
 }
 
+cmd_merge_skel_overlay() {
+  # TODO require overlay to be unmounted...
+  # TODO expand ~
+  git merge-file -p "/$1" /dev/null "$GOM_WORK_TREE/$1"
+}
+
+cmd_merge_overlay_skel() {
+  # TODO require overlay to be unmounted...
+  # TODO expand ~
+  git merge-file -p "/$1" /dev/null "$GOM_WORK_TREE/$1"
+}
+
+cmd_copy_overlay_skel() {
+  if [[ "$1" == "--all" ]]; then
+    git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" update-index --refresh
+    if ! git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" diff-index HEAD --quiet --; then
+      echo 'Error: overlay working tree is dirty; all changes need to be committed in order to run a diff and apply changes to skel' >&2
+      exit 1
+    fi
+
+    # TODO dry run: the following patch will be applied to skel
+    # TODO allow patching parts of the filetree
+    #git --git-dir="$GOM_GIT_DIR" --work-tree="/" update-index --assume-unchanged /.gitignore
+    #git --git-dir="$GOM_GIT_DIR" --work-tree="/" update-index --no-assume-unchanged /.gitignore
+    git --git-dir="$GOM_GIT_DIR" --work-tree="/" update-index --skip-worktree /.gitignore
+    git --git-dir="$GOM_GIT_DIR" --work-tree="/" diff -R | git --git-dir="$GOM_GIT_DIR" --work-tree="/" apply --stat
+    git --git-dir="$GOM_GIT_DIR" --work-tree="/" update-index --no-skip-worktree /.gitignore
+
+    return
+  fi
+  cp "$GOM_WORK_TREE/$1" "/$1"
+}
+
+cmd_copy_skel_overlay() {
+  cp "/$1" "$GOM_WORK_TREE/$1"
+}
+
 cmd_mount() {
   ensure_repo_clean
   local upperdir=${GOM_WORK_TREE}/$1
@@ -284,10 +321,11 @@ case $1 in
   ignore) shift; cmd_ignore "$@" ;;
   diff-overlay-skel|dos|osd) shift; cmd_diff_overlay_skel "$@" ;; # this tells you what changes will take place when you umount the overlay or copy files from skel to overlay
   diff-skel-overlay|dso|sod) shift; cmd_diff_skel_overlay "$@" ;; # this tells you what changes will take place when you mount the overlay or copy files form overlay to skel
-#  copy-overlay-skel|cos|osc) shift; cmd_copy_overlay_skel "$@" ;;
-#  copy-skel-overlay|cso|soc) shift; cmd_copy_skel_overlay "$@" ;;
+  copy-overlay-skel|cos|osc) shift; cmd_copy_overlay_skel "$@" ;;
+  copy-skel-overlay|cso|soc) shift; cmd_copy_skel_overlay "$@" ;;
 # skel-molt|skel-backup - copy files tracked by git into a new directory containing the skel counterparts of the overlay
-# merge-file - a helper to merge files present in both skel and overlay
+  merge-overlay-skel|mos|osm) shift; cmd_merge_overlay_skel "$@" ;; # a helper to merge files present in both skel and overlay
+  merge-skel-overlay|mso|som) shift; cmd_merge_skel_overlay "$@" ;; # a helper to merge files present in both skel and overlay
   list|ls) shift; cmd_list "$@" ;;
   mount) shift; cmd_mount "$@" ;;
   pwd) shift; cmd_pwd ;;

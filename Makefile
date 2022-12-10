@@ -10,4 +10,4 @@ shell: /nix
 	docker run --rm -it -e XDG_CACHE_HOME=/nix/var/wx_cache --mount type=volume,dst=/nix,dst=/nix,volume-driver=local,volume-opt=type=overlay,volume-opt=device=overlay,\"volume-opt=o=lowerdir=/nix,upperdir=/tmp/nix-upper,workdir=/tmp/nix-work\" --mount type=bind,source="$$(pwd)",target="$$(pwd)",readonly --workdir="$$(pwd)" nixos/nix nix-shell || true
 
 install:
-	sudo ln -sfn $$(realpath ./gom.sh) /usr/local/bin/skm
+	sudo ln -sfn $$(realpath ./ftr.sh) /usr/local/bin/ftr
