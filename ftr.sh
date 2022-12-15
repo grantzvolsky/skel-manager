@@ -229,7 +229,7 @@ cmd_umount() {
   if sudo umount -t overlay $1; then
     exit
   else
-    { echo "[ERROR] Failed to umount ${1}; fuser may indicate why:"; } > 2 > /dev/null
+    { echo "[ERROR] Failed to umount ${1}; fuser may indicate why:"; } >&2 > /dev/null
     fuser -vm $1
   fi
 }
