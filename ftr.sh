@@ -188,6 +188,7 @@ cmd_copy_overlay_skel() {
     #git --git-dir="$GOM_GIT_DIR" --work-tree="/" update-index --no-assume-unchanged /.gitignore
     git --git-dir="$GOM_GIT_DIR" --work-tree="/" update-index --skip-worktree /.gitignore
     git --git-dir="$GOM_GIT_DIR" --work-tree="/" diff -R | git --git-dir="$GOM_GIT_DIR" --work-tree="/" apply --stat
+    git --git-dir="$GOM_GIT_DIR" --work-tree="$GOM_WORK_TREE" ls-files | grep -v '.gitignore' | xargs -I{} bash -c 'mkdir -p /$(dirname {}) && cp /ftr-overlay/{} /{}'
     git --git-dir="$GOM_GIT_DIR" --work-tree="/" update-index --no-skip-worktree /.gitignore
 
     return
